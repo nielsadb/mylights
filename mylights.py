@@ -1,103 +1,39 @@
 #!/usr/bin/env python3
 
-#
-# Hue light API:
-# https://developers.meethue.com/develop/hue-api/
-#
-# Sample implementation:
-# https://github.com/studioimaginaire/phue/blob/master/phue.py
-#
-
-import requests
-import logging
-import json
 import sys
-import pprint
-import ipaddress as ip
-from typing import Union, Literal, Optional
+import runpy
+import plugin
+from util import split_on
+from log import get_logger
+from typing import Optional
+from bridge import Bridge, FileCache
+from ipaddress import IPv4Address
 
-def _logger():
-  handler = logging.StreamHandler(sys.stderr)
-  formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
-  handler.setFormatter(formatter)
-  log = logging.getLogger('mylights')
-  log.addHandler(handler)
-  log.setLevel(logging.INFO)
-  return log
+log = get_logger('mylights(main)')
 
-log = _logger()
-pp = pprint.PrettyPrinter(indent=2)
+def run_plugin(name, params, state, bridge):
+    file = name + '.py'
+    init_globals = plugin.make_globals(plugin.MyLights(params, state, bridge))
+    returned_globals = runpy.run_path(file, init_globals=init_globals)
+    return plugin.get_mylights(returned_globals).result()
 
-class MyLightException(BaseException):
-  def __init__(self, msg):
-    self._msg = msg
+def parse_argv(argv):
+  def make_params(pstrs):
+    splitps = [p[1:].split('=') for p in pstrs]
+    return {sp[0]:(sp[1] if len(sp) > 1 else True) for sp in splitps}
+  runs = split_on(argv, lambda s: not s.startswith('-'))
+  has_options = len(argv) > 0 and argv[0].startswith('-')
+  options = make_params(next(runs)) if has_options else {}
+  plugins = [(run[0], make_params(run[1:])) for run in runs]
+  return options, plugins
 
-class Bridge(object):
+def main(argv):  
+  options, plugins = parse_argv(argv)
+  print(f'{options=}')
+  state = {}
+  bridge = Bridge(ip=IPv4Address('192.168.1.10'), cache=FileCache('username.txt'))
+  for name, params in plugins:
+    state = run_plugin(name, params, state, bridge) or state
 
-  __slots__ = ('_ip', '_username')
-  IpAddr = Union[ip.IPv4Address, ip.IPv6Address]
-  _ip: IpAddr
-  _username: str
-
-  HTTPMethod = Literal['GET', 'POST']
-  def api(self, method:HTTPMethod, resource, *, data=None):
-    url = f"http://{self._ip}/api/{self._username}/{resource}"
-    if data:
-      data = json.dumps(data)
-    log.debug(f'HTTP {method} {url} with data {data}')
-    if method == 'GET':
-      r = requests.get(url)
-    elif method == 'POST':
-      r = requests.post(url, data=data)
-    log.debug(f'--> {r.status_code}: {r.text}')
-    return r.json()
-
-  def _register(self):
-    url = f"http://{self._ip}/api/"
-    data = json.dumps({'devicetype':'mylights#macbook niels'})
-    log.debug(f'HTTP POST {url} with data {data}')
-    r = requests.post(url, data=data)
-    log.debug(f'--> {r.status_code}: {r.text}')
-    reply = r.json()[0]
-    if 'success' in reply:
-      return reply['success']['username']
-
-  def __repr__(self):
-    return f"<Bridge ip:{self._ip} username:{self._username}>"
-
-  def __init__(self, *, ip:IpAddr, username=None, cache=None):
-    self._ip = ip
-    if username is None and cache is not None:
-      username = cache.read()
-    if username is None:
-      username = self._register()
-      if username is not None and cache is not None:
-        cache.write(username)
-    if username is None:
-      raise MyLightException("Failed to register. Press the button first.")
-    self._username = username
-
-class FileCache(object):
-  def read(self) -> Optional[str]:
-    try:
-      with open(self._filename, 'r', encoding='utf-8') as f:
-        return f.read()
-    except FileNotFoundError:
-      log.info(f'Failed to load file {self._filename}.')
-    return None
-
-  def write(self, str:str):
-    try:
-      with open(self._filename, 'w', encoding='utf-8') as f:
-        f.write(str)
-    except:
-      log.info(f'Failed to write to file {self._filename}.')
-    
-  def __init__(self, filename):
-    self._filename = filename
-
-bridge = Bridge(ip=ip.IPv4Address('192.168.1.10'), cache=FileCache('username.txt'))
-
-for section in "lights groups schedules scenes sensors rules".split(' '):
-  print(f"====== {section.upper()} ======")
-  pp.pprint(bridge.api('GET', section))
+if __name__ == '__main__':
+  main(sys.argv[1:])
