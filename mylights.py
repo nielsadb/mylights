@@ -1,20 +1,32 @@
 #!/usr/bin/env python3
 
+#
+# Hue light API:
+# https://developers.meethue.com/develop/hue-api/
+#
+# Sample implementation:
+# https://github.com/studioimaginaire/phue/blob/master/phue.py
+#
+
 import requests
 import logging
 import json
 import sys
+import pprint
+import ipaddress as ip
+from typing import Union, Literal, Optional
 
-def logger():
+def _logger():
   handler = logging.StreamHandler(sys.stderr)
   formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
   handler.setFormatter(formatter)
   log = logging.getLogger('mylights')
   log.addHandler(handler)
-  log.setLevel(logging.DEBUG)
+  log.setLevel(logging.INFO)
   return log
 
-log = logger()
+log = _logger()
+pp = pprint.PrettyPrinter(indent=2)
 
 class MyLightException(BaseException):
   def __init__(self, msg):
@@ -22,7 +34,13 @@ class MyLightException(BaseException):
 
 class Bridge(object):
 
-  def api(self, method, resource, *, data=None):
+  __slots__ = ('_ip', '_username')
+  IpAddr = Union[ip.IPv4Address, ip.IPv6Address]
+  _ip: IpAddr
+  _username: str
+
+  HTTPMethod = Literal['GET', 'POST']
+  def api(self, method:HTTPMethod, resource, *, data=None):
     url = f"http://{self._ip}/api/{self._username}/{resource}"
     if data:
       data = json.dumps(data)
@@ -31,12 +49,10 @@ class Bridge(object):
       r = requests.get(url)
     elif method == 'POST':
       r = requests.post(url, data=data)
-    else:
-      raise TypeError("method must be GET or POST")
     log.debug(f'--> {r.status_code}: {r.text}')
     return r.json()
 
-  def register(self):
+  def _register(self):
     url = f"http://{self._ip}/api/"
     data = json.dumps({'devicetype':'mylights#macbook niels'})
     log.debug(f'HTTP POST {url} with data {data}')
@@ -49,37 +65,39 @@ class Bridge(object):
   def __repr__(self):
     return f"<Bridge ip:{self._ip} username:{self._username}>"
 
-  def __init__(self, *, ip, username=None, cache=None):
+  def __init__(self, *, ip:IpAddr, username=None, cache=None):
     self._ip = ip
     if username is None and cache is not None:
       username = cache.read()
     if username is None:
-      username = self.register()
+      username = self._register()
       if username is not None and cache is not None:
         cache.write(username)
     if username is None:
       raise MyLightException("Failed to register. Press the button first.")
     self._username = username
 
-
 class FileCache(object):
-  def read(self):
+  def read(self) -> Optional[str]:
     try:
-      with open(self._filename, 'r') as f:
+      with open(self._filename, 'r', encoding='utf-8') as f:
         return f.read()
     except FileNotFoundError:
-      log.info('Failed to load file {self._filename}.')
+      log.info(f'Failed to load file {self._filename}.')
+    return None
 
-  def write(self, str):
+  def write(self, str:str):
     try:
-      with open(self._filename, 'w') as f:
+      with open(self._filename, 'w', encoding='utf-8') as f:
         f.write(str)
     except:
-      log.info('Failed to write to file {self._filename}.')
+      log.info(f'Failed to write to file {self._filename}.')
     
   def __init__(self, filename):
     self._filename = filename
 
-bridge = Bridge(ip='192.168.1.10', cache=FileCache('username.txt'))
+bridge = Bridge(ip=ip.IPv4Address('192.168.1.10'), cache=FileCache('username.txt'))
 
-print(bridge)
+for section in "lights groups schedules scenes sensors rules".split(' '):
+  print(f"====== {section.upper()} ======")
+  pp.pprint(bridge.api('GET', section))
