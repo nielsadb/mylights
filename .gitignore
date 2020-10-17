@@ -1,4 +1,7 @@
 output.txt
+output.json
 .mypy_cache
 .mypy_cache/*
 scratch.py
+ __pycache__
+ __pycache__/*

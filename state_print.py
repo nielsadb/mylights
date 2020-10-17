@@ -1,9 +1,19 @@
-from log import get_logger
-import plugin
 from pprint import PrettyPrinter
+from json import dumps
+import plugin
 
 mylights = plugin.get_mylights(globals())
-log = get_logger('print_state')
-pp = PrettyPrinter(indent=2)
+params = mylights.plugin_params()
 
-pp.pprint(mylights.input_state())
+def message():
+  if 'json' in params:
+    return dumps(mylights.input_state())
+  else:
+    pp = PrettyPrinter(indent=2)
+    return pp.pprint(mylights.input_state())
+
+if 'file' in params:
+  with open(params['file'], 'w') as stream:
+    stream.write(message())
+else:
+  print(message())

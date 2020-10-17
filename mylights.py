@@ -12,7 +12,7 @@ from ipaddress import IPv4Address
 log = get_logger('mylights(main)')
 
 def run_plugin(name, params, state, bridge):
-    file = name + '.py'
+    file = name + ('' if name.endswith('.py') else '.py')
     init_globals = plugin.make_globals(plugin.MyLights(params, state, bridge))
     returned_globals = runpy.run_path(file, init_globals=init_globals)
     return plugin.get_mylights(returned_globals).result()
