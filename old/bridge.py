@@ -16,7 +16,7 @@ from typing import Union, Literal, Optional
 log = get_logger('bridge')
 
 IpAddr = Union[IPv4Address, IPv6Address]
-HTTPMethod = Literal['GET', 'POST']
+HTTPMethod = Literal['GET', 'POST', 'PUT']
 
 class Bridge(object):
   __slots__ = ('_ip', '_username')
@@ -32,6 +32,8 @@ class Bridge(object):
       r = requests.get(url)
     elif method == 'POST':
       r = requests.post(url, data=data)
+    elif method == 'PUT':
+      r = requests.put(url, data=data)
     log.debug(f'--> {r.status_code}: {r.text}')
     return r.json()
 

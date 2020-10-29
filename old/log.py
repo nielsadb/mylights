@@ -7,7 +7,7 @@ def _make_logger():
   handler.setFormatter(formatter)
   log = logging.getLogger('mylights')
   log.addHandler(handler)
-  log.setLevel(logging.INFO)
+  log.setLevel(logging.DEBUG)
   return log
 
 _log = _make_logger()

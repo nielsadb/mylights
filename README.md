@@ -16,13 +16,32 @@ Convenience functions only for really repetative work, keep to a mimimum.
 
 ## Script that configures my system
 
+Generic functions:
+* configure themes:
+  - morning
+  - work
+  - sport
+  - cleaning
+  - cooking
+  - shaving
+  - reading
+  - yoga
+  - meditation
+  - moon (awake)
+  - sleeping (off)
+* add a "trigger -> theme + scene + reconfigures"
+
+* configure a motion sensor
+
 * Check if all scenes are there. Else create them.
   - Tryout: create a scene with current lights.
   - Tryout: delete that scene.
   - Tryout: create a new room scene: set lights and create scene with light group.
   - Tryout: same for full house scene.
+* Configure all dimmer switches.
+  - Tryout: play around with unused dimmer switch.
+  - Tryout: update effect of motion sensor (use the kitchen one).
 * Configure all motion sensors.
-* 
 
 * Re-usable configuration parts (e.g. colors), to make it easy to keep things consistent.
 * Re-usable configuration adapters, e.g. to indicate what it means to dim something.
